@@ -1,16 +1,16 @@
 -- This file was automatically generated for the LuaDist project.
 
 package = 'auth0-nginx'
-version = '1.2.0-0'
+version = '1.3.0-0'
 -- LuaDist source
 source = {
-  tag = "1.2.0-0",
+  tag = "1.3.0-0",
   url = "git://github.com/LuaDist-testing/auth0-nginx.git"
 }
 -- Original source
 -- source = {
 --   url = 'git://github.com/maxamante/auth0-nginx',
---   tag = '1.2.0'
+--   tag = '1.3.0'
 -- }
 description = {
   summary = 'An Auth0 + nginx integration',
