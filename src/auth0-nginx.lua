@@ -78,7 +78,7 @@ function M.changePassword(applicationHref)
 
   -- Finish the request
 
-  local response = cjson.decode(res.body)
+  local response = res.body
   Helpers.finish(res, response)
 end
 
@@ -122,13 +122,15 @@ function M.signup(applicationHref)
   Helpers.finish(res, response)
 end
 
-function M.socialOauthTokenEndpoint(verify, applicationHref)
+function M.socialOauthTokenEndpoint(verify, includeUser, applicationHref)
   applicationHref = applicationHref or appHref
-  ngx.req.read_body()
+  includeUser = includeUser or false
+  verify = verify or false
 
-  local httpc = http.new()
-  local headers = ngx.req.get_headers()
+  ngx.req.read_body()
   local body = cjson.decode(ngx.req.get_body_data())
+  local headers = ngx.req.get_headers()
+  local httpc = http.new()
 
   -- Add clientId and clientSecret
 
@@ -163,22 +165,26 @@ function M.socialOauthTokenEndpoint(verify, applicationHref)
     Helpers.checkDomainWhitelist(email)
   end
 
-  -- Finish request; Send auth and userinfo
+  -- Finish request
 
-  local responseBody = {
-    auth = authRes,
-    user = userinfoBody
-  }
+  local responseBody = authRes
+  if includeUser then
+    responseBody = {
+      auth = authRes,
+      user = userinfoBody
+    }
+  end
   Helpers.finish(res, responseBody)
 end
 
-function M.oauthTokenEndpoint(applicationHref)
+function M.oauthTokenEndpoint(includeUser, applicationHref)
   applicationHref = applicationHref or appHref
-  ngx.req.read_body()
+  includeUser = includeUser or false
 
-  local httpc = http.new()
-  local headers = ngx.req.get_headers()
+  ngx.req.read_body()
   local body = cjson.decode(ngx.req.get_body_data())
+  local headers = ngx.req.get_headers()
+  local httpc = http.new()
 
   -- Add clientId and clientSecret to non-client_credentials requests
 
@@ -194,21 +200,21 @@ function M.oauthTokenEndpoint(applicationHref)
   if not res or res.status >= 500 then
     return ngx.exit(ngx.HTTP_INTERNAL_SERVER_ERROR)
   end
-
-  -- Parse the response
-
-  local names = {
-    "access_token",
-    "id_token",
-    "refresh_token",
-    "token_type",
-    "expires_in"
-  }
-  local response = Helpers.parseResponse(res, names)
+  local authRes = cjson.decode(res.body)
 
   -- Finish the request
 
-  Helpers.finish(res, response)
+  local responseBody = authRes
+  if includeUser and body['grant_type'] == 'password' then
+    --Build and send the userinfo request
+    local idToken = authRes['id_token']
+    local userMeta = jwt:load_jwt(idToken).payload
+    responseBody = {
+      auth = authRes,
+      user = userMeta
+    }
+  end
+  Helpers.finish(res, responseBody)
 end
 
 function M.socialLogin(applicationHref)
@@ -236,7 +242,6 @@ function M.verifyAccount(applicationHref)
     return ngx.exit(ngx.HTTP_BAD_REQUEST)
   end
 end
-
 
 function Helpers.finish(res, response)
   ngx.status = res.status
